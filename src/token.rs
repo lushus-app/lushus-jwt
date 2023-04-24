@@ -102,7 +102,7 @@ mod tests {
     use anyhow::Result;
     use jsonwebtoken::{jwk::JwkSet, Algorithm, EncodingKey, Header};
 
-    use crate::{claims::Claims, token::EncodedToken};
+    use crate::{claims::Claims, scope::Scope, token::EncodedToken};
 
     const PEM: &str = r#"
 -----BEGIN RSA PRIVATE KEY-----
@@ -158,13 +158,13 @@ gBHwk7Elh43LZsvSyGpOLGLpuugTyMLEu9EAtZUAzx8PSXNlnA==
     }
     "#;
 
-    fn generate_token() -> Result<EncodedToken> {
+    fn generate_token(scopes: Vec<Scope>) -> Result<EncodedToken> {
         let header = Header {
             alg: Algorithm::RS256,
             kid: Some("QeiAb2kNPCohaTF8f51Tm".to_string()),
             ..Default::default()
         };
-        let claims = Claims::default();
+        let claims = Claims::new("issuer", "subject", "audience", scopes);
         let key = EncodingKey::from_rsa_pem(PEM.as_ref()).expect("expected encoding key from PEM");
         let token: EncodedToken = jsonwebtoken::encode(&header, &claims, &key)?.into();
         Ok(token)
@@ -173,17 +173,25 @@ gBHwk7Elh43LZsvSyGpOLGLpuugTyMLEu9EAtZUAzx8PSXNlnA==
     #[test]
     fn test_decode() {
         let jwk_set: JwkSet = serde_json::from_str(JWKS_JSON).expect("expected JWK set");
-        let token = generate_token()
+        let scopes = vec![
+            Scope::new("create", "user"),
+            Scope::new("read", "user"),
+            Scope::new("delete", "user"),
+        ];
+        let token = generate_token(scopes)
             .expect("expected token")
             .decode(jwk_set)
             .expect("expected decoded token");
-        let headers = token.header();
-        println!("{:?}", headers);
-        let claims = token.claims();
-        println!("{:?}", claims);
         let user_actions = token
             .actions("user")
             .expect("expected to have user actions");
-        println!("{:?}", user_actions);
+        assert_eq!(
+            *user_actions,
+            vec!(
+                "create".to_string(),
+                "read".to_string(),
+                "delete".to_string()
+            )
+        );
     }
 }

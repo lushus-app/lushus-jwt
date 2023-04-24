@@ -18,22 +18,17 @@ pub struct Claims {
     exp: u64,
 }
 
-impl Default for Claims {
-    fn default() -> Self {
-        let default_scopes = vec![
-            Scope::new("create", "user"),
-            Scope::new("read", "user"),
-            Scope::new("delete", "user"),
-        ];
+impl Claims {
+    pub fn new(iss: &str, sub: &str, aud: &str, scopes: Vec<Scope>) -> Self {
         let iat = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .expect("Expected system time since epoch");
         let exp = iat + Duration::new(86400, 0);
         Self {
-            iss: "issuer".to_string(),
-            sub: "subject".to_string(),
-            aud: "audience".to_string(),
-            scopes: default_scopes,
+            iss: iss.to_string(),
+            sub: sub.to_string(),
+            aud: aud.to_string(),
+            scopes,
             iat: iat.as_secs(),
             exp: exp.as_secs(),
         }
