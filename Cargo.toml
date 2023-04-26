@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+actix-web = "4.3"
+futures ="0.3"
 anyhow = "1"
 jsonwebtoken = "8"
 rand = "0.8"

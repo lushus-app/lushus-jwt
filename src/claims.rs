@@ -2,7 +2,7 @@ use std::time::{Duration, SystemTime};
 
 use crate::{scope::Scope, space_separated_deserialize, space_separated_serialize};
 
-#[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct Claims {
     iss: String,
     sub: String,
