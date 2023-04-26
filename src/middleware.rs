@@ -106,7 +106,6 @@ where
 
         let encoded = auth.unwrap();
         let encoded_token: EncodedToken = encoded.into();
-        println!("{:?}", encoded_token);
         let token = encoded_token.decode(&self.jwk_set);
 
         if let Err(e) = token {

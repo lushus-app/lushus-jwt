@@ -1,4 +1,7 @@
-use std::time::{Duration, SystemTime};
+use std::{
+    collections::HashMap,
+    time::{Duration, SystemTime},
+};
 
 use crate::{scope::Scope, space_separated_deserialize, space_separated_serialize};
 
@@ -18,6 +21,10 @@ pub struct Claims {
     exp: u64,
 }
 
+type Resource = String;
+type Action = String;
+type ActionList = Vec<Action>;
+
 impl Claims {
     pub fn new(iss: &str, sub: &str, aud: &str, scopes: Vec<Scope>) -> Self {
         let iat = SystemTime::now()
@@ -32,6 +39,19 @@ impl Claims {
             iat: iat.as_secs(),
             exp: exp.as_secs(),
         }
+    }
+
+    pub fn resources(&self) -> HashMap<Resource, ActionList> {
+        let mut resources = HashMap::<Resource, ActionList>::new();
+        for scope in self.scopes.iter() {
+            let resource = scope.resource.clone();
+            let action = scope.action.clone();
+            resources
+                .entry(resource)
+                .and_modify(|vec| vec.push(action.clone()))
+                .or_insert(vec![action]);
+        }
+        resources
     }
 }
 

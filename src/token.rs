@@ -72,15 +72,7 @@ pub struct Token {
 
 impl Token {
     pub fn new(header: Header, claims: Claims) -> Self {
-        let mut resources = HashMap::<Resource, ActionList>::new();
-        for scope in claims.scopes.iter() {
-            let resource = scope.resource.clone();
-            let action = scope.action.clone();
-            resources
-                .entry(resource)
-                .and_modify(|vec| vec.push(action.clone()))
-                .or_insert(vec![action]);
-        }
+        let resources = claims.resources();
         Self {
             header,
             claims,
