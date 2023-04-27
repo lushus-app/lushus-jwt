@@ -75,7 +75,6 @@ where
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let service = self.service.clone();
-
         Box::pin(async move {
             let headers = req.headers();
             let auth = headers
