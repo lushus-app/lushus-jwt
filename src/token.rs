@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    fmt::{Display, Formatter},
+};
 
 use jsonwebtoken::{
     decode, decode_header, jwk::JwkSet, Algorithm, DecodingKey, Header, Validation,
@@ -32,6 +35,12 @@ impl From<&str> for EncodedToken {
 impl From<String> for EncodedToken {
     fn from(encoded: String) -> Self {
         Self { encoded }
+    }
+}
+
+impl Display for EncodedToken {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.encoded)
     }
 }
 

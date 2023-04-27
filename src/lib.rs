@@ -3,6 +3,7 @@ use std::{fmt, fmt::Display, marker::PhantomData, str::FromStr};
 use serde::{de, de::Visitor, Deserializer, Serializer};
 
 mod claims;
+mod jwks_middleware;
 mod middleware;
 mod scope;
 mod scope_deserializer;
@@ -10,6 +11,7 @@ mod scope_serializer;
 mod serde_scope;
 pub mod token;
 
+pub use jwks_middleware::JwkSetFactory;
 pub use middleware::{AuthorizationFactory, AuthorizationMiddleware};
 pub use token::Token;
 
