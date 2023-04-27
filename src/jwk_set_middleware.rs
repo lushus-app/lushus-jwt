@@ -36,6 +36,14 @@ impl JwkSetFactory {
     }
 }
 
+impl Default for JwkSetFactory {
+    fn default() -> Self {
+        let well_known_url = std::env::var("LUSHUS_WELL_KNOWN_URL")
+            .expect("expected environment var LUSHUS_WELL_KNOWN_URL to be set");
+        Self::new(well_known_url)
+    }
+}
+
 impl<S, B> Transform<S, ServiceRequest> for JwkSetFactory
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + 'static,

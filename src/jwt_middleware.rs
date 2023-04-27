@@ -51,6 +51,8 @@ pub enum AuthorizationMiddlewareError {
     NoAuthorizationHeader,
     #[error("authorization header is invalid")]
     InvalidAuthorizationHeader,
+    #[error("no JWK set available")]
+    NoJWKSet,
     #[error("encoded token {0} is not valid")]
     InvalidEncodedToken(String),
 }
@@ -81,7 +83,11 @@ where
                 .ok_or(AuthorizationMiddlewareError::NoAuthorizationHeader)?
                 .to_str()
                 .map_err(|_| AuthorizationMiddlewareError::InvalidAuthorizationHeader)?;
-            let jwk_set = req.extensions().get::<JwkSet>().unwrap().clone();
+            let jwk_set = req
+                .extensions()
+                .get::<JwkSet>()
+                .ok_or(AuthorizationMiddlewareError::NoJWKSet)?
+                .clone();
             let encoded_token: EncodedToken = auth.into();
             let token = encoded_token.clone().decode(&jwk_set).map_err(|_| {
                 AuthorizationMiddlewareError::InvalidEncodedToken(encoded_token.to_string())
