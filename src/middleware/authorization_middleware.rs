@@ -21,32 +21,25 @@ struct ExpectedClaims {
 
 pub struct AuthorizationFactory {
     expected_claims: ExpectedClaims,
-    expected_resource: String,
 }
 
 impl AuthorizationFactory {
-    pub fn new(
-        expected_issuer: String,
-        expected_audience: String,
-        expected_resource: String,
-    ) -> Self {
+    pub fn new(expected_issuer: String, expected_audience: String) -> Self {
         let expected_claims = ExpectedClaims {
             expected_issuer,
             expected_audience,
         };
-        Self {
-            expected_claims,
-            expected_resource,
-        }
+        Self { expected_claims }
     }
+}
 
-    pub fn for_resource(resource: &str) -> Self {
+impl Default for AuthorizationFactory {
+    fn default() -> Self {
         let authority = std::env::var("LUSHUS_AUTHORITY")
             .expect("expected environment var LUSHUS_AUTHORITY to be set");
         let audience = std::env::var("LUSHUS_AUDIENCE")
             .expect("expected environment var LUSHUS_AUDIENCE to be set");
-        let resource = resource.to_string();
-        Self::new(authority, audience, resource)
+        Self::new(authority, audience)
     }
 }
 
@@ -66,7 +59,6 @@ where
         let middleware = AuthorizationMiddleware {
             service: Rc::new(service),
             expected_claims: Rc::new(self.expected_claims.clone()),
-            expected_resource: self.expected_resource.clone(),
         };
         ready(Ok(middleware))
     }
@@ -75,7 +67,6 @@ where
 pub struct AuthorizationMiddleware<S> {
     service: Rc<S>,
     expected_claims: Rc<ExpectedClaims>,
-    expected_resource: String,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -105,20 +96,13 @@ where
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let service = self.service.clone();
         let expected_claims = self.expected_claims.clone();
-        let expected_resource = self.expected_resource.clone();
         Box::pin(async move {
             let token = req
                 .extensions()
                 .get::<Token>()
                 .ok_or(AuthorizationMiddlewareError::NoToken)?
                 .clone();
-
             let claims = token.claims();
-
-            token
-                .actions(&expected_resource)
-                .ok_or(AuthorizationMiddlewareError::InvalidClaims)?;
-
             let now = SystemTime::now();
             let timestamp = now.duration_since(UNIX_EPOCH).unwrap().as_secs();
 

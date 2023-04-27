@@ -21,6 +21,12 @@ impl JWTFactory {
     }
 }
 
+impl Default for JWTFactory {
+    fn default() -> Self {
+        Self {}
+    }
+}
+
 impl<S, B> Transform<S, ServiceRequest> for JWTFactory
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + 'static,
