@@ -12,7 +12,7 @@ mod serde_scope;
 pub mod token;
 
 pub use jwk_set_middleware::JwkSetFactory;
-pub use jwt_middleware::{AuthorizationFactory, AuthorizationMiddleware};
+pub use jwt_middleware::{JWTFactory, JWTMiddleware};
 pub use token::Token;
 
 fn space_separated_deserialize<'de, V, T, D>(deserializer: D) -> Result<V, D::Error>
