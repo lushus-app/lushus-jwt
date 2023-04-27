@@ -7,9 +7,9 @@ use crate::{scope::Scope, space_separated_deserialize, space_separated_serialize
 
 #[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct Claims {
-    iss: String,
-    sub: String,
-    aud: String,
+    pub iss: String,
+    pub sub: String,
+    pub aud: String,
     #[serde(
         deserialize_with = "space_separated_deserialize",
         serialize_with = "space_separated_serialize",
@@ -17,8 +17,8 @@ pub struct Claims {
         rename(serialize = "scope")
     )]
     pub scopes: Vec<Scope>,
-    iat: u64,
-    exp: u64,
+    pub iat: u64,
+    pub exp: u64,
 }
 
 type Resource = String;

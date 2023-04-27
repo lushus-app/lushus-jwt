@@ -5,8 +5,9 @@ edition = "2021"
 
 [dependencies]
 actix-web = "4.3"
-futures ="0.3"
 anyhow = "1"
+chrono = "0.4"
+futures ="0.3"
 jsonwebtoken = "8"
 rand = "0.8"
 reqwest = "0.11"

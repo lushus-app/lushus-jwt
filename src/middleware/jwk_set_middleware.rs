@@ -10,7 +10,7 @@ use actix_web::{
 use futures::future::LocalBoxFuture;
 use http_cache_reqwest::{CACacheManager, Cache, CacheMode, HttpCache};
 use jsonwebtoken::jwk::JwkSet;
-use reqwest::Client;
+use reqwest::{Client, Url};
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 
 pub struct JwkSetFactory {
@@ -38,8 +38,13 @@ impl JwkSetFactory {
 
 impl Default for JwkSetFactory {
     fn default() -> Self {
-        let well_known_url = std::env::var("LUSHUS_WELL_KNOWN_URL")
-            .expect("expected environment var LUSHUS_WELL_KNOWN_URL to be set");
+        let authority = std::env::var("LUSHUS_AUTHORITY")
+            .expect("expected environment var LUSHUS_AUTHORITY to be set");
+        let well_known_url = Url::parse(&authority)
+            .expect("expected authority to be a valid URL")
+            .join(".well-known/jwks.json")
+            .expect("expected well-known url to be valid")
+            .to_string();
         Self::new(well_known_url)
     }
 }
