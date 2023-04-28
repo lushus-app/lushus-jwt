@@ -73,8 +73,8 @@ pub struct AuthorizationMiddleware<S> {
 pub enum AuthorizationMiddlewareError {
     #[error("no token")]
     NoToken,
-    #[error("invalid claims")]
-    InvalidClaims,
+    #[error("invalid claims: {0}")]
+    InvalidClaims(String),
 }
 
 impl ResponseError for AuthorizationMiddlewareError {
@@ -108,16 +108,22 @@ where
 
             (claims.iss == expected_claims.expected_issuer)
                 .then_some(true)
-                .ok_or(AuthorizationMiddlewareError::InvalidClaims)?;
+                .ok_or(AuthorizationMiddlewareError::InvalidClaims(
+                    "Issuer does not match".to_string(),
+                ))?;
             (claims.aud == expected_claims.expected_audience)
                 .then_some(true)
-                .ok_or(AuthorizationMiddlewareError::InvalidClaims)?;
-            (claims.iat < timestamp)
-                .then_some(true)
-                .ok_or(AuthorizationMiddlewareError::InvalidClaims)?;
-            (claims.exp >= timestamp)
-                .then_some(true)
-                .ok_or(AuthorizationMiddlewareError::InvalidClaims)?;
+                .ok_or(AuthorizationMiddlewareError::InvalidClaims(
+                    "Audience does not match".to_string(),
+                ))?;
+            (timestamp < claims.iat).then_some(true).ok_or(
+                AuthorizationMiddlewareError::InvalidClaims(
+                    "Current time is before issued at time".to_string(),
+                ),
+            )?;
+            (timestamp <= claims.exp).then_some(true).ok_or(
+                AuthorizationMiddlewareError::InvalidClaims("Token is expired".to_string()),
+            )?;
 
             let res = service.call(req).await?;
             Ok(res)
