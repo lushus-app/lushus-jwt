@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    fmt::{Display, Formatter},
+};
 
 use jsonwebtoken::{
     decode, decode_header, jwk::JwkSet, Algorithm, DecodingKey, Header, Validation,
@@ -14,14 +17,17 @@ pub enum Error {
     NoJWKError,
 }
 
+#[derive(Debug, Clone)]
 pub struct EncodedToken {
     encoded: String,
 }
 
 impl From<&str> for EncodedToken {
     fn from(encoded: &str) -> Self {
+        let split = encoded.split("Bearer ").collect::<Vec<_>>();
+        let token = split[1];
         Self {
-            encoded: encoded.to_string(),
+            encoded: token.to_string(),
         }
     }
 }
@@ -29,6 +35,12 @@ impl From<&str> for EncodedToken {
 impl From<String> for EncodedToken {
     fn from(encoded: String) -> Self {
         Self { encoded }
+    }
+}
+
+impl Display for EncodedToken {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.encoded)
     }
 }
 
@@ -45,7 +57,7 @@ impl EncodedToken {
         self.header().kid.expect("Expected to have a key id")
     }
 
-    pub fn decode(self, jwk_set: JwkSet) -> Result<Token, Error> {
+    pub fn decode(self, jwk_set: &JwkSet) -> Result<Token, Error> {
         let kid = self.kid();
         let jwk = jwk_set.find(&kid).ok_or(Error::NoJWKError)?;
         let decoding_key = DecodingKey::from_jwk(jwk)?;
@@ -60,6 +72,7 @@ type Resource = String;
 type Action = String;
 type ActionList = Vec<Action>;
 
+#[derive(Debug, Clone)]
 pub struct Token {
     header: Header,
     claims: Claims,
@@ -68,15 +81,7 @@ pub struct Token {
 
 impl Token {
     pub fn new(header: Header, claims: Claims) -> Self {
-        let mut resources = HashMap::<Resource, ActionList>::new();
-        for scope in claims.scopes.iter() {
-            let resource = scope.resource.clone();
-            let action = scope.action.clone();
-            resources
-                .entry(resource)
-                .and_modify(|vec| vec.push(action.clone()))
-                .or_insert(vec![action]);
-        }
+        let resources = claims.resources();
         Self {
             header,
             claims,
@@ -180,7 +185,7 @@ gBHwk7Elh43LZsvSyGpOLGLpuugTyMLEu9EAtZUAzx8PSXNlnA==
         ];
         let token = generate_token(scopes)
             .expect("expected token")
-            .decode(jwk_set)
+            .decode(&jwk_set)
             .expect("expected decoded token");
         let user_actions = token
             .actions("user")

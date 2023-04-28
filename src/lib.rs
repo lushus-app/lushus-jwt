@@ -3,11 +3,18 @@ use std::{fmt, fmt::Display, marker::PhantomData, str::FromStr};
 use serde::{de, de::Visitor, Deserializer, Serializer};
 
 mod claims;
+mod middleware;
 mod scope;
 mod scope_deserializer;
 mod scope_serializer;
 mod serde_scope;
 pub mod token;
+
+pub use middleware::{
+    authorization_middleware::AuthorizationFactory, authorize, jwk_set_middleware::JwkSetFactory,
+    jwt_middleware::JWTFactory, AuthorizationError, Authorized,
+};
+pub use token::Token;
 
 fn space_separated_deserialize<'de, V, T, D>(deserializer: D) -> Result<V, D::Error>
 where
