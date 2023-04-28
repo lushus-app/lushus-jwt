@@ -1,5 +1,5 @@
 #[derive(thiserror::Error, Debug)]
-pub enum AuthError {
+pub enum AuthorizationError {
     #[error("not authorized")]
     Unauthorized,
     #[error("Resource '{0}' not authorized")]

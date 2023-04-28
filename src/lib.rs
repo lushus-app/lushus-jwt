@@ -12,7 +12,7 @@ pub mod token;
 
 pub use middleware::{
     authorization_middleware::AuthorizationFactory, authorize, jwk_set_middleware::JwkSetFactory,
-    jwt_middleware::JWTFactory, AuthError, Authorized,
+    jwt_middleware::JWTFactory, AuthorizationError, Authorized,
 };
 pub use token::Token;
 
