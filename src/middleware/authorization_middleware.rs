@@ -116,7 +116,7 @@ where
                 .ok_or(AuthorizationMiddlewareError::InvalidClaims(
                     "Audience does not match".to_string(),
                 ))?;
-            (timestamp < claims.iat).then_some(true).ok_or(
+            (timestamp <= claims.iat).then_some(true).ok_or(
                 AuthorizationMiddlewareError::InvalidClaims(
                     "Current time is before issued at time".to_string(),
                 ),
