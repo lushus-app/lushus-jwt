@@ -4,14 +4,18 @@ use std::{
 };
 
 use actix_web::{
+    body::BoxBody,
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
     http::StatusCode,
-    Error, HttpMessage, ResponseError,
+    Error, HttpMessage, HttpResponse, HttpResponseBuilder, ResponseError,
 };
 use futures::future::LocalBoxFuture;
 use jsonwebtoken::jwk::JwkSet;
 
-use crate::token::EncodedToken;
+use crate::{
+    middleware::error_response::{forbidden_error_body, internal_server_error_body},
+    token::EncodedToken,
+};
 
 pub struct JWTFactory {}
 
@@ -65,7 +69,26 @@ pub enum JWTMiddlewareError {
 
 impl ResponseError for JWTMiddlewareError {
     fn status_code(&self) -> StatusCode {
-        StatusCode::FORBIDDEN
+        match self {
+            JWTMiddlewareError::NoJWKSet => StatusCode::FORBIDDEN,
+            _ => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+
+    fn error_response(&self) -> HttpResponse<BoxBody> {
+        let error_body = match self {
+            JWTMiddlewareError::NoJWKSet => internal_server_error_body("NO_JWK_SET", self),
+            JWTMiddlewareError::NoAuthorizationHeader => {
+                forbidden_error_body("NO_AUTHORIZATION_HEADER", self)
+            }
+            JWTMiddlewareError::InvalidAuthorizationHeader => {
+                forbidden_error_body("INVALID_AUTHORIZATION_HEADER", self)
+            }
+            JWTMiddlewareError::InvalidEncodedToken => {
+                forbidden_error_body("INVALID_ENCODED_TOKEN", self)
+            }
+        };
+        HttpResponseBuilder::new(self.status_code()).json(error_body)
     }
 }
 

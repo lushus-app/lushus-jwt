@@ -13,8 +13,10 @@ use crate::claims::Claims;
 pub enum Error {
     #[error("decode error")]
     DecodeError(#[from] jsonwebtoken::errors::Error),
-    #[error("no jwk")]
+    #[error("no matching JWK found in the JWK set")]
     NoJWKError,
+    #[error("JWT does not provide a valid key id")]
+    NoKID,
 }
 
 #[derive(Debug, Clone)]
@@ -49,16 +51,18 @@ impl EncodedToken {
         &self.encoded
     }
 
-    fn header(&self) -> Header {
-        decode_header(self.encoded()).expect("Expected to have a header")
+    fn header(&self) -> Result<Header, Error> {
+        let header = decode_header(self.encoded())?;
+        Ok(header)
     }
 
-    fn kid(&self) -> String {
-        self.header().kid.expect("Expected to have a key id")
+    fn kid(&self) -> Result<String, Error> {
+        let kid = self.header()?.kid.ok_or(Error::NoKID)?;
+        Ok(kid)
     }
 
     pub fn decode(self, jwk_set: &JwkSet) -> Result<Token, Error> {
-        let kid = self.kid();
+        let kid = self.kid()?;
         let jwk = jwk_set.find(&kid).ok_or(Error::NoJWKError)?;
         let decoding_key = DecodingKey::from_jwk(jwk)?;
         let validation = Validation::new(Algorithm::RS256);

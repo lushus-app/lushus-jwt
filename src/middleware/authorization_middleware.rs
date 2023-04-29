@@ -5,13 +5,17 @@ use std::{
 };
 
 use actix_web::{
+    body::BoxBody,
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
     http::StatusCode,
-    Error, HttpMessage, ResponseError,
+    Error, HttpMessage, HttpResponse, HttpResponseBuilder, ResponseError,
 };
 use futures::future::LocalBoxFuture;
 
-use crate::Token;
+use crate::{
+    middleware::error_response::{forbidden_error_body, internal_server_error_body},
+    Token,
+};
 
 #[derive(Clone, Debug)]
 struct ExpectedClaims {
@@ -80,6 +84,16 @@ pub enum AuthorizationMiddlewareError {
 impl ResponseError for AuthorizationMiddlewareError {
     fn status_code(&self) -> StatusCode {
         StatusCode::FORBIDDEN
+    }
+
+    fn error_response(&self) -> HttpResponse<BoxBody> {
+        let error_body = match self {
+            AuthorizationMiddlewareError::NoToken => internal_server_error_body("NO_TOKEN", self),
+            AuthorizationMiddlewareError::InvalidClaims(_) => {
+                forbidden_error_body("INVALID_CLAIMS", self)
+            }
+        };
+        HttpResponseBuilder::new(self.status_code()).json(error_body)
     }
 }
 

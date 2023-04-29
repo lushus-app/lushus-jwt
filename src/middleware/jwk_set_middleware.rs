@@ -4,14 +4,18 @@ use std::{
 };
 
 use actix_web::{
+    body::BoxBody,
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
-    Error, HttpMessage, ResponseError,
+    http::StatusCode,
+    Error, HttpMessage, HttpResponse, HttpResponseBuilder, ResponseError,
 };
 use futures::future::LocalBoxFuture;
 use http_cache_reqwest::{CACacheManager, Cache, CacheMode, HttpCache};
 use jsonwebtoken::jwk::JwkSet;
 use reqwest::{Client, Url};
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
+
+use crate::middleware::error_response::internal_server_error_body;
 
 pub struct JwkSetFactory {
     well_known_url: Rc<String>,
@@ -85,7 +89,16 @@ pub enum JwkSetError {
     DeserializeError,
 }
 
-impl ResponseError for JwkSetError {}
+impl ResponseError for JwkSetError {
+    fn status_code(&self) -> StatusCode {
+        StatusCode::INTERNAL_SERVER_ERROR
+    }
+
+    fn error_response(&self) -> HttpResponse<BoxBody> {
+        let error_body = internal_server_error_body("NO_JWK_SET", self);
+        HttpResponseBuilder::new(self.status_code()).json(error_body)
+    }
+}
 
 impl<S, B> Service<ServiceRequest> for JwkSetMiddleware<S>
 where
