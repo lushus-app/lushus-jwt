@@ -1,6 +1,4 @@
-use std::fmt::Display;
-
-#[derive(Serialize)]
+#[derive(serde::Serialize)]
 pub struct ErrorBody {
     code: String,
     message: String,
