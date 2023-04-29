@@ -1,7 +1,6 @@
 use std::{
     future::{ready, Ready},
     rc::Rc,
-    time::{SystemTime, UNIX_EPOCH},
 };
 
 use actix_web::{
@@ -10,6 +9,7 @@ use actix_web::{
     http::StatusCode,
     Error, HttpMessage, HttpResponse, HttpResponseBuilder, ResponseError,
 };
+use chrono::Utc;
 use futures::future::LocalBoxFuture;
 
 use crate::{
@@ -73,6 +73,19 @@ pub struct AuthorizationMiddleware<S> {
     expected_claims: Rc<ExpectedClaims>,
 }
 
+fn require(condition: bool, message: &str) -> Result<(), AuthorizationMiddlewareError> {
+    condition
+        .then_some(true)
+        .ok_or(AuthorizationMiddlewareError::InvalidClaims(
+            message.to_string(),
+        ))
+        .map_err(|e| {
+            log::info!("{}", e);
+            e
+        })?;
+    Ok(())
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum AuthorizationMiddlewareError {
     #[error("no token")]
@@ -117,36 +130,18 @@ where
                 .ok_or(AuthorizationMiddlewareError::NoToken)?
                 .clone();
             let claims = token.claims();
-            let now = SystemTime::now();
-            let timestamp = now.duration_since(UNIX_EPOCH).unwrap().as_secs();
+            let timestamp = Utc::now().timestamp() as u64;
 
-            (claims.iss == expected_claims.expected_issuer)
-                .then_some(true)
-                .ok_or(AuthorizationMiddlewareError::InvalidClaims(
-                    "Issuer does not match".to_string(),
-                ))
-                .map_err(|e| {
-                    log::info!("{}", e);
-                    e
-                })?;
-            (claims.aud == expected_claims.expected_audience)
-                .then_some(true)
-                .ok_or(AuthorizationMiddlewareError::InvalidClaims(
-                    "Audience does not match".to_string(),
-                ))
-                .map_err(|e| {
-                    log::info!("{}", e);
-                    e
-                })?;
-            (timestamp <= claims.exp)
-                .then_some(true)
-                .ok_or(AuthorizationMiddlewareError::InvalidClaims(
-                    "Token is expired".to_string(),
-                ))
-                .map_err(|e| {
-                    log::info!("{}", e);
-                    e
-                })?;
+            require(
+                claims.iss == expected_claims.expected_issuer,
+                "Issuer does not match",
+            )?;
+            require(
+                claims.aud == expected_claims.expected_audience,
+                "Audience does not match",
+            )?;
+            require(timestamp >= claims.iat, "Token issued for invalid time")?;
+            require(timestamp <= claims.exp, "Token is expired")?;
 
             let res = service.call(req).await?;
             Ok(res)
