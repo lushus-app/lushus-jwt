@@ -70,8 +70,8 @@ pub enum JWTMiddlewareError {
 impl ResponseError for JWTMiddlewareError {
     fn status_code(&self) -> StatusCode {
         match self {
-            JWTMiddlewareError::NoJWKSet => StatusCode::FORBIDDEN,
-            _ => StatusCode::INTERNAL_SERVER_ERROR,
+            JWTMiddlewareError::NoJWKSet => StatusCode::INTERNAL_SERVER_ERROR,
+            _ => StatusCode::FORBIDDEN,
         }
     }
 
