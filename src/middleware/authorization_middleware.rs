@@ -124,15 +124,29 @@ where
                 .then_some(true)
                 .ok_or(AuthorizationMiddlewareError::InvalidClaims(
                     "Issuer does not match".to_string(),
-                ))?;
+                ))
+                .map_err(|e| {
+                    log::info!("{}", e);
+                    e
+                })?;
             (claims.aud == expected_claims.expected_audience)
                 .then_some(true)
                 .ok_or(AuthorizationMiddlewareError::InvalidClaims(
                     "Audience does not match".to_string(),
-                ))?;
-            (timestamp <= claims.exp).then_some(true).ok_or(
-                AuthorizationMiddlewareError::InvalidClaims("Token is expired".to_string()),
-            )?;
+                ))
+                .map_err(|e| {
+                    log::info!("{}", e);
+                    e
+                })?;
+            (timestamp <= claims.exp)
+                .then_some(true)
+                .ok_or(AuthorizationMiddlewareError::InvalidClaims(
+                    "Token is expired".to_string(),
+                ))
+                .map_err(|e| {
+                    log::info!("{}", e);
+                    e
+                })?;
 
             let res = service.call(req).await?;
             Ok(res)

@@ -119,10 +119,18 @@ where
                 .get(url.to_string())
                 .send()
                 .await
-                .map_err(|e| JwkSetError::FetchError(e.to_string()))?
+                .map_err(|e| JwkSetError::FetchError(e.to_string()))
+                .map_err(|e| {
+                    log::info!("{}", e);
+                    e
+                })?
                 .json::<JwkSet>()
                 .await
-                .map_err(|_| JwkSetError::DeserializeError)?;
+                .map_err(|_| JwkSetError::DeserializeError)
+                .map_err(|e| {
+                    log::info!("{}", e);
+                    e
+                })?;
             req.extensions_mut().insert(jwk_set);
             let res = service.call(req).await?;
             Ok(res)

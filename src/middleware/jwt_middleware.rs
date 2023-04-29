@@ -108,18 +108,34 @@ where
             let headers = req.headers();
             let auth = headers
                 .get("Authorization")
-                .ok_or(JWTMiddlewareError::NoAuthorizationHeader)?
+                .ok_or(JWTMiddlewareError::NoAuthorizationHeader)
+                .map_err(|e| {
+                    log::info!("{}", e);
+                    e
+                })?
                 .to_str()
-                .map_err(|_| JWTMiddlewareError::InvalidAuthorizationHeader)?;
+                .map_err(|_| JWTMiddlewareError::InvalidAuthorizationHeader)
+                .map_err(|e| {
+                    log::info!("{}", e);
+                    e
+                })?;
             let jwk_set = req
                 .extensions()
                 .get::<JwkSet>()
-                .ok_or(JWTMiddlewareError::NoJWKSet)?
+                .ok_or(JWTMiddlewareError::NoJWKSet)
+                .map_err(|e| {
+                    log::info!("{}", e);
+                    e
+                })?
                 .clone();
             let encoded_token: EncodedToken = auth.into();
             let token = encoded_token
                 .decode(&jwk_set)
-                .map_err(|_| JWTMiddlewareError::InvalidEncodedToken)?;
+                .map_err(|_| JWTMiddlewareError::InvalidEncodedToken)
+                .map_err(|e| {
+                    log::info!("{}", e);
+                    e
+                })?;
             req.extensions_mut().insert(token);
             let res = service.call(req).await?;
             Ok(res)
