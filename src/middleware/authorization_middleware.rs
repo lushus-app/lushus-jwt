@@ -96,15 +96,18 @@ pub enum AuthorizationMiddlewareError {
 
 impl ResponseError for AuthorizationMiddlewareError {
     fn status_code(&self) -> StatusCode {
-        StatusCode::FORBIDDEN
+        match self {
+            AuthorizationMiddlewareError::InvalidClaims(_) => StatusCode::FORBIDDEN,
+            AuthorizationMiddlewareError::NoToken => StatusCode::INTERNAL_SERVER_ERROR,
+        }
     }
 
     fn error_response(&self) -> HttpResponse<BoxBody> {
         let error_body = match self {
-            AuthorizationMiddlewareError::NoToken => internal_server_error_body("NO_TOKEN", self),
             AuthorizationMiddlewareError::InvalidClaims(_) => {
                 forbidden_error_body("INVALID_CLAIMS", self)
             }
+            AuthorizationMiddlewareError::NoToken => internal_server_error_body("NO_TOKEN", self),
         };
         HttpResponseBuilder::new(self.status_code()).json(error_body)
     }
