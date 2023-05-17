@@ -17,17 +17,24 @@ use crate::{
     token::EncodedToken,
 };
 
-pub struct JWTFactory {}
+pub struct JWTFactory {
+    enabled: bool,
+}
 
 impl JWTFactory {
     pub fn new() -> Self {
-        Self {}
+        Self { enabled: true }
+    }
+
+    pub fn enabled(mut self, value: bool) -> Self {
+        self.enabled = value;
+        self
     }
 }
 
 impl Default for JWTFactory {
     fn default() -> Self {
-        Self {}
+        Self::new()
     }
 }
 
@@ -46,6 +53,7 @@ where
     fn new_transform(&self, service: S) -> Self::Future {
         let middleware = JWTMiddleware {
             service: Rc::new(service),
+            enabled: Rc::new(self.enabled),
         };
         ready(Ok(middleware))
     }
@@ -53,6 +61,7 @@ where
 
 pub struct JWTMiddleware<S> {
     service: Rc<S>,
+    enabled: Rc<bool>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -104,7 +113,13 @@ where
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let service = self.service.clone();
+        let enabled = self.enabled.clone();
         Box::pin(async move {
+            if !*enabled {
+                let res = service.call(req).await?;
+                return Ok(res);
+            }
+
             let headers = req.headers();
             let auth = headers
                 .get("Authorization")

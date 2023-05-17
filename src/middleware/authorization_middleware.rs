@@ -24,16 +24,26 @@ struct ExpectedClaims {
 }
 
 pub struct AuthorizationFactory {
+    enabled: bool,
     expected_claims: ExpectedClaims,
 }
 
 impl AuthorizationFactory {
     pub fn new(expected_issuer: String, expected_audience: String) -> Self {
+        let enabled = true;
         let expected_claims = ExpectedClaims {
             expected_issuer,
             expected_audience,
         };
-        Self { expected_claims }
+        Self {
+            expected_claims,
+            enabled,
+        }
+    }
+
+    pub fn enabled(mut self, value: bool) -> Self {
+        self.enabled = value;
+        self
     }
 }
 
@@ -62,6 +72,7 @@ where
     fn new_transform(&self, service: S) -> Self::Future {
         let middleware = AuthorizationMiddleware {
             service: Rc::new(service),
+            enabled: Rc::new(self.enabled),
             expected_claims: Rc::new(self.expected_claims.clone()),
         };
         ready(Ok(middleware))
@@ -70,6 +81,7 @@ where
 
 pub struct AuthorizationMiddleware<S> {
     service: Rc<S>,
+    enabled: Rc<bool>,
     expected_claims: Rc<ExpectedClaims>,
 }
 
@@ -125,8 +137,14 @@ where
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let service = self.service.clone();
+        let enabled = self.enabled.clone();
         let expected_claims = self.expected_claims.clone();
         Box::pin(async move {
+            if !*enabled {
+                let res = service.call(req).await?;
+                return Ok(res);
+            }
+
             let token = req
                 .extensions()
                 .get::<Token>()
@@ -145,7 +163,6 @@ where
             )?;
             require(timestamp >= claims.iat, "Token issued for invalid time")?;
             require(timestamp <= claims.exp, "Token is expired")?;
-
             let res = service.call(req).await?;
             Ok(res)
         })
