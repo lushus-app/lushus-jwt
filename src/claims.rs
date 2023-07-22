@@ -20,7 +20,7 @@ pub struct AuthorizationClaims {
 pub struct Claims<Extension> {
     pub iss: String,
     pub sub: String,
-    pub aud: String,
+    pub aud: Vec<String>,
     pub iat: u64,
     pub exp: u64,
     #[serde(flatten)]
@@ -32,7 +32,13 @@ type Action = String;
 type ActionList = Vec<Action>;
 
 impl<Extension> Claims<Extension> {
-    pub fn new(iss: &str, sub: &str, aud: &str, lifetime: Duration, extension: Extension) -> Self {
+    pub fn new(
+        iss: &str,
+        sub: &str,
+        aud: &Vec<String>,
+        lifetime: Duration,
+        extension: Extension,
+    ) -> Self {
         let iat = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .expect("Expected system time since epoch");
@@ -40,7 +46,7 @@ impl<Extension> Claims<Extension> {
         Self {
             iss: iss.to_string(),
             sub: sub.to_string(),
-            aud: aud.to_string(),
+            aud: aud.clone(),
             iat: iat.as_secs(),
             exp: exp.as_secs(),
             extension,
@@ -76,7 +82,15 @@ mod test {
 
     #[test]
     fn can_be_deserialized_from_string() {
-        let string = r#"{"iss":"issuer","sub":"subject","aud":"audience","scope":"create:users read:users","iat":1000,"exp":1000}"#;
+        let string = r#"
+        {
+            "iss":"issuer",
+            "sub":"subject",
+            "aud":["audience"],
+            "scope":"create:users read:users",
+            "iat":1000,
+            "exp":1000
+        }"#;
         let claims: Claims<AuthorizationClaims> =
             serde_json::from_str(string).expect("Expected deserialize");
         let scope_create_users = Scope {
@@ -93,7 +107,7 @@ mod test {
         let expected_claims = Claims::<AuthorizationClaims> {
             iss: "issuer".to_string(),
             sub: "subject".to_string(),
-            aud: "audience".to_string(),
+            aud: vec!["audience".to_string()],
             extension,
             iat: 1000,
             exp: 1000,
@@ -114,7 +128,7 @@ mod test {
         let claims = Claims::<AuthorizationClaims> {
             iss: "issuer".to_string(),
             sub: "subject".to_string(),
-            aud: "audience".to_string(),
+            aud: vec!["audience".to_string()],
             extension: AuthorizationClaims {
                 scopes: vec![scope_create_users, scope_read_users],
             },
@@ -122,7 +136,7 @@ mod test {
             exp: 1000,
         };
         let string = serde_json::to_string(&claims).expect("Expected serialize");
-        let expected_string = r#"{"iss":"issuer","sub":"subject","aud":"audience","scope":"create:users read:users","iat":1000,"exp":1000}"#;
+        let expected_string = r#"{"iss":"issuer","sub":"subject","aud":["audience"],"iat":1000,"exp":1000,"scope":"create:users read:users"}"#;
         assert_eq!(string, expected_string);
     }
 }

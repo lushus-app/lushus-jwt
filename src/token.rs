@@ -200,8 +200,8 @@ gBHwk7Elh43LZsvSyGpOLGLpuugTyMLEu9EAtZUAzx8PSXNlnA==
         let extension = AuthorizationClaims { scopes };
         let iss = "issuer";
         let sub = "subject";
-        let aud = "audience";
-        let claims = Claims::new(iss, sub, aud, duration, extension);
+        let aud = vec!["audience".to_string()];
+        let claims = Claims::new(iss, sub, &aud, duration, extension);
         let key = EncodingKey::from_rsa_pem(PEM.as_ref()).expect("expected encoding key from PEM");
         let token: EncodedToken<AuthorizationClaims> =
             jsonwebtoken::encode(&header, &claims, &key)?.into();

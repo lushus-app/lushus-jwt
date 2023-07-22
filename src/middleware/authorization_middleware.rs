@@ -158,7 +158,10 @@ where
                 "Issuer does not match",
             )?;
             require(
-                claims.aud == expected_claims.expected_audience,
+                claims
+                    .aud
+                    .iter()
+                    .any(|aud| aud == &expected_claims.expected_audience),
                 "Audience does not match",
             )?;
             require(timestamp >= claims.iat, "Token issued for invalid time")?;
