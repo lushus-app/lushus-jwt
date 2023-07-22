@@ -27,13 +27,15 @@ impl Scope {
 pub enum ScopeError {
     #[error("scope \"{0}\" has invalid format; expected format action:resource")]
     InvalidScopeFormat(String),
+    #[error(transparent)]
+    DeserializeError(#[from] ScopeDeserializerError),
 }
 
 impl FromStr for Scope {
-    type Err = ScopeDeserializerError;
+    type Err = ScopeError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        serde_scope::from_str(s)
+        serde_scope::from_str(s).map_err(ScopeError::DeserializeError)
     }
 }
 
@@ -95,7 +97,7 @@ impl Serialize for Scope {
 
 #[cfg(test)]
 mod test {
-    use crate::{scope::Scope, scope_deserializer::ScopeDeserializerError};
+    use crate::{scope::Scope, ScopeError};
 
     #[test]
     fn scope_can_be_parsed_from_string() {
@@ -113,7 +115,7 @@ mod test {
             .parse::<Scope>()
             .expect_err("expected to fail to parse");
         println!("{}", scope.to_string());
-        assert!(matches!(scope, ScopeDeserializerError::Error(_)))
+        assert!(matches!(scope, ScopeError::DeserializeError(_)))
     }
 
     #[test]
