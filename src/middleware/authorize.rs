@@ -1,11 +1,11 @@
 use crate::middleware::{authorization_error::AuthorizationError, authorized::Authorized};
 
 pub fn authorize(
-    auth: Authorized,
+    auth: &Authorized,
     resource: &str,
     required_action: &str,
 ) -> Result<(), AuthorizationError> {
-    let token = auth.clone().ok_or(AuthorizationError::Unauthorized)?;
+    let token = auth.as_ref().ok_or(AuthorizationError::Unauthorized)?;
     let actions = token
         .actions(resource)
         .ok_or(AuthorizationError::UnauthorizedResource(

@@ -8,13 +8,17 @@ mod scope;
 mod scope_deserializer;
 mod scope_serializer;
 mod serde_scope;
-pub mod token;
+mod token;
 
+pub use claims::{AuthorizationClaims, Claims};
 pub use middleware::{
     authorization_middleware::AuthorizationFactory, authorize, jwk_set_middleware::JwkSetFactory,
     jwt_middleware::JWTFactory, AuthorizationError, Authorized,
 };
-pub use token::Token;
+pub use scope::{Scope, ScopeError};
+pub use token::{EncodedToken, Token};
+
+pub type AccessToken = Token<AuthorizationClaims>;
 
 fn space_separated_deserialize<'de, V, T, D>(deserializer: D) -> Result<V, D::Error>
 where

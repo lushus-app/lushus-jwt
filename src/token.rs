@@ -1,13 +1,17 @@
 use std::{
     collections::HashMap,
     fmt::{Display, Formatter},
+    marker::PhantomData,
 };
 
 use jsonwebtoken::{
     decode, decode_header, jwk::JwkSet, Algorithm, DecodingKey, Header, Validation,
 };
 
-use crate::claims::Claims;
+use crate::{
+    claims::{AuthorizationClaims, Claims},
+    Scope,
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -20,33 +24,41 @@ pub enum Error {
 }
 
 #[derive(Debug, Clone)]
-pub struct EncodedToken {
+pub struct EncodedToken<Extension> {
     encoded: String,
+    phantom_data: PhantomData<Extension>,
 }
 
-impl From<&str> for EncodedToken {
+impl<Extension> From<&str> for EncodedToken<Extension> {
     fn from(encoded: &str) -> Self {
         let split = encoded.split("Bearer ").collect::<Vec<_>>();
         let token = split[1];
         Self {
             encoded: token.to_string(),
+            phantom_data: Default::default(),
         }
     }
 }
 
-impl From<String> for EncodedToken {
+impl<Extension> From<String> for EncodedToken<Extension> {
     fn from(encoded: String) -> Self {
-        Self { encoded }
+        Self {
+            encoded,
+            phantom_data: Default::default(),
+        }
     }
 }
 
-impl Display for EncodedToken {
+impl<Extension> Display for EncodedToken<Extension> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.encoded)
     }
 }
 
-impl EncodedToken {
+impl<Extension> EncodedToken<Extension>
+where
+    for<'a> Extension: serde::Deserialize<'a>,
+{
     fn encoded(&self) -> &str {
         &self.encoded
     }
@@ -61,12 +73,13 @@ impl EncodedToken {
         Ok(kid)
     }
 
-    pub fn decode(self, jwk_set: &JwkSet) -> Result<Token, Error> {
+    pub fn decode(self, jwk_set: &JwkSet) -> Result<Token<Extension>, Error> {
         let kid = self.kid()?;
         let jwk = jwk_set.find(&kid).ok_or(Error::NoJWKError)?;
         let decoding_key = DecodingKey::from_jwk(jwk)?;
         let validation = Validation::new(Algorithm::RS256);
-        let decoded_token = decode::<Claims>(self.encoded(), &decoding_key, &validation)?;
+        let decoded_token =
+            decode::<Claims<Extension>>(self.encoded(), &decoding_key, &validation)?;
         let token = Token::new(decoded_token.header, decoded_token.claims);
         Ok(token)
     }
@@ -77,41 +90,51 @@ type Action = String;
 type ActionList = Vec<Action>;
 
 #[derive(Debug, Clone)]
-pub struct Token {
+pub struct Token<Extension> {
     header: Header,
-    claims: Claims,
-    resources: HashMap<Resource, ActionList>,
+    claims: Claims<Extension>,
 }
 
-impl Token {
-    pub fn new(header: Header, claims: Claims) -> Self {
-        let resources = claims.resources();
-        Self {
-            header,
-            claims,
-            resources,
-        }
+impl<Extension> Token<Extension> {
+    pub fn new(header: Header, claims: Claims<Extension>) -> Self {
+        Self { header, claims }
     }
 
     pub fn header(&self) -> &Header {
         &self.header
     }
 
-    pub fn claims(&self) -> &Claims {
+    pub fn claims(&self) -> &Claims<Extension> {
         &self.claims
     }
+}
 
-    pub fn actions(&self, resource: &str) -> Option<&ActionList> {
-        self.resources.get(resource)
+impl Token<AuthorizationClaims> {
+    pub fn scopes(&self) -> &Vec<Scope> {
+        &self.claims.scopes()
+    }
+
+    pub fn resources(&self) -> HashMap<Resource, ActionList> {
+        self.claims.resources()
+    }
+
+    pub fn actions(&self, resource: &str) -> Option<ActionList> {
+        self.resources().get(resource).map(Clone::clone)
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use anyhow::Result;
     use jsonwebtoken::{jwk::JwkSet, Algorithm, EncodingKey, Header};
 
-    use crate::{claims::Claims, scope::Scope, token::EncodedToken};
+    use crate::{
+        claims::{AuthorizationClaims, Claims},
+        scope::Scope,
+        token::EncodedToken,
+    };
 
     const PEM: &str = r#"
 -----BEGIN RSA PRIVATE KEY-----
@@ -167,15 +190,21 @@ gBHwk7Elh43LZsvSyGpOLGLpuugTyMLEu9EAtZUAzx8PSXNlnA==
     }
     "#;
 
-    fn generate_token(scopes: Vec<Scope>) -> Result<EncodedToken> {
+    fn generate_token(scopes: Vec<Scope>) -> Result<EncodedToken<AuthorizationClaims>> {
         let header = Header {
             alg: Algorithm::RS256,
             kid: Some("QeiAb2kNPCohaTF8f51Tm".to_string()),
             ..Default::default()
         };
-        let claims = Claims::new("issuer", "subject", "audience", scopes);
+        let duration = Duration::from_secs(86400);
+        let extension = AuthorizationClaims { scopes };
+        let iss = "issuer";
+        let sub = "subject";
+        let aud = "audience";
+        let claims = Claims::new(iss, &sub, aud, duration, extension);
         let key = EncodingKey::from_rsa_pem(PEM.as_ref()).expect("expected encoding key from PEM");
-        let token: EncodedToken = jsonwebtoken::encode(&header, &claims, &key)?.into();
+        let token: EncodedToken<AuthorizationClaims> =
+            jsonwebtoken::encode(&header, &claims, &key)?.into();
         Ok(token)
     }
 

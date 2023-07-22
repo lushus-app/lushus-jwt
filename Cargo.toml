@@ -2,6 +2,7 @@
 name = "lushus-jwt"
 version = "0.1.0"
 edition = "2021"
+resolver = "2"
 
 [dependencies]
 actix-web = "4.3"
@@ -17,4 +18,4 @@ rsa = "0.9.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1"
 thiserror = "1"
-http-cache-reqwest = "0.9.0"
+http-cache-reqwest = "0.10.0"

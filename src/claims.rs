@@ -6,10 +6,7 @@ use std::{
 use crate::{scope::Scope, space_separated_deserialize, space_separated_serialize};
 
 #[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
-pub struct Claims {
-    pub iss: String,
-    pub sub: String,
-    pub aud: String,
+pub struct AuthorizationClaims {
     #[serde(
         deserialize_with = "space_separated_deserialize",
         serialize_with = "space_separated_serialize",
@@ -17,33 +14,48 @@ pub struct Claims {
         rename(serialize = "scope")
     )]
     pub scopes: Vec<Scope>,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
+pub struct Claims<Extension> {
+    pub iss: String,
+    pub sub: String,
+    pub aud: String,
     pub iat: u64,
     pub exp: u64,
+    #[serde(flatten)]
+    pub extension: Extension,
 }
 
 type Resource = String;
 type Action = String;
 type ActionList = Vec<Action>;
 
-impl Claims {
-    pub fn new(iss: &str, sub: &str, aud: &str, scopes: Vec<Scope>) -> Self {
+impl<Extension> Claims<Extension> {
+    pub fn new(iss: &str, sub: &str, aud: &str, lifetime: Duration, extension: Extension) -> Self {
         let iat = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .expect("Expected system time since epoch");
-        let exp = iat + Duration::new(86400, 0);
+        let exp = iat + lifetime;
         Self {
             iss: iss.to_string(),
             sub: sub.to_string(),
             aud: aud.to_string(),
-            scopes,
             iat: iat.as_secs(),
             exp: exp.as_secs(),
+            extension,
         }
+    }
+}
+
+impl Claims<AuthorizationClaims> {
+    pub fn scopes(&self) -> &Vec<Scope> {
+        &self.extension.scopes
     }
 
     pub fn resources(&self) -> HashMap<Resource, ActionList> {
         let mut resources = HashMap::<Resource, ActionList>::new();
-        for scope in self.scopes.iter() {
+        for scope in self.scopes().iter() {
             let resource = scope.resource.clone();
             let action = scope.action.clone();
             resources
@@ -57,12 +69,16 @@ impl Claims {
 
 #[cfg(test)]
 mod test {
-    use crate::{claims::Claims, scope::Scope};
+    use crate::{
+        claims::{AuthorizationClaims, Claims},
+        scope::Scope,
+    };
 
     #[test]
     fn can_be_deserialized_from_string() {
         let string = r#"{"iss":"issuer","sub":"subject","aud":"audience","scope":"create:users read:users","iat":1000,"exp":1000}"#;
-        let claims: Claims = serde_json::from_str(string).expect("Expected deserialize");
+        let claims: Claims<AuthorizationClaims> =
+            serde_json::from_str(string).expect("Expected deserialize");
         let scope_create_users = Scope {
             action: "create".to_string(),
             resource: "users".to_string(),
@@ -71,11 +87,14 @@ mod test {
             action: "read".to_string(),
             resource: "users".to_string(),
         };
-        let expected_claims = Claims {
+        let extension = AuthorizationClaims {
+            scopes: vec![scope_create_users, scope_read_users],
+        };
+        let expected_claims = Claims::<AuthorizationClaims> {
             iss: "issuer".to_string(),
             sub: "subject".to_string(),
             aud: "audience".to_string(),
-            scopes: vec![scope_create_users, scope_read_users],
+            extension,
             iat: 1000,
             exp: 1000,
         };
@@ -92,11 +111,13 @@ mod test {
             action: "read".to_string(),
             resource: "users".to_string(),
         };
-        let claims = Claims {
+        let claims = Claims::<AuthorizationClaims> {
             iss: "issuer".to_string(),
             sub: "subject".to_string(),
             aud: "audience".to_string(),
-            scopes: vec![scope_create_users, scope_read_users],
+            extension: AuthorizationClaims {
+                scopes: vec![scope_create_users, scope_read_users],
+            },
             iat: 1000,
             exp: 1000,
         };

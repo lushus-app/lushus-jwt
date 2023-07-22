@@ -14,7 +14,7 @@ use futures::future::LocalBoxFuture;
 
 use crate::{
     middleware::error_response::{forbidden_error_body, internal_server_error_body},
-    Token,
+    AccessToken,
 };
 
 #[derive(Clone, Debug)]
@@ -147,7 +147,7 @@ where
 
             let token = req
                 .extensions()
-                .get::<Token>()
+                .get::<AccessToken>()
                 .ok_or(AuthorizationMiddlewareError::NoToken)?
                 .clone();
             let claims = token.claims();

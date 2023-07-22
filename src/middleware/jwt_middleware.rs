@@ -13,6 +13,7 @@ use futures::future::LocalBoxFuture;
 use jsonwebtoken::jwk::JwkSet;
 
 use crate::{
+    claims::AuthorizationClaims,
     middleware::error_response::{forbidden_error_body, internal_server_error_body},
     token::EncodedToken,
 };
@@ -143,7 +144,7 @@ where
                     e
                 })?
                 .clone();
-            let encoded_token: EncodedToken = auth.into();
+            let encoded_token: EncodedToken<AuthorizationClaims> = auth.into();
             let token = encoded_token
                 .decode(&jwk_set)
                 .map_err(|_| JWTMiddlewareError::InvalidEncodedToken)
