@@ -1,7 +1,7 @@
-use crate::middleware::{authorization_error::AuthorizationError, authorized::Authorized};
+use crate::middleware::{authorization::Authorization, authorization_error::AuthorizationError};
 
-pub fn authorize(
-    auth: &Authorized,
+pub fn verify(
+    auth: &Authorization,
     resource: &str,
     required_action: &str,
 ) -> Result<(), AuthorizationError> {

@@ -12,8 +12,8 @@ mod token;
 
 pub use claims::{AuthorizationClaims, Claims};
 pub use middleware::{
-    authorization_middleware::AuthorizationFactory, authorize, jwk_set_middleware::JwkSetFactory,
-    jwt_middleware::JWTFactory, AuthorizationError, Authorized,
+    authorization_middleware::AuthorizationFactory, jwk_set_middleware::JwkSetFactory,
+    jwt_middleware::JWTFactory, verify, Authorization, AuthorizationError,
 };
 pub use scope::{Scope, ScopeError};
 pub use token::{EncodedToken, Token};
