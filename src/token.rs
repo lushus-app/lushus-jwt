@@ -1,89 +1,11 @@
-use std::{
-    collections::HashMap,
-    fmt::{Display, Formatter},
-    marker::PhantomData,
-};
+mod access_token;
+mod id_token;
 
-use jsonwebtoken::{
-    decode, decode_header, jwk::JwkSet, Algorithm, DecodingKey, Header, Validation,
-};
+pub use access_token::{AccessToken, EncodedAccessToken};
+pub use id_token::{EncodedIdToken, IdToken};
+use jsonwebtoken::Header;
 
-use crate::{
-    claims::{AuthorizationClaims, Claims},
-    Scope,
-};
-
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error("decode error")]
-    DecodeError(#[from] jsonwebtoken::errors::Error),
-    #[error("no matching JWK found in the JWK set")]
-    NoJWKError,
-    #[error("JWT does not provide a valid key id")]
-    NoKID,
-}
-
-#[derive(Debug, Clone)]
-pub struct EncodedToken<Extension> {
-    encoded: String,
-    phantom_data: PhantomData<Extension>,
-}
-
-impl<Extension> From<&str> for EncodedToken<Extension> {
-    fn from(encoded: &str) -> Self {
-        let split = encoded.split("Bearer ").collect::<Vec<_>>();
-        let token = split[1];
-        Self {
-            encoded: token.to_string(),
-            phantom_data: Default::default(),
-        }
-    }
-}
-
-impl<Extension> From<String> for EncodedToken<Extension> {
-    fn from(encoded: String) -> Self {
-        Self {
-            encoded,
-            phantom_data: Default::default(),
-        }
-    }
-}
-
-impl<Extension> Display for EncodedToken<Extension> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.encoded)
-    }
-}
-
-impl<Extension> EncodedToken<Extension>
-where
-    for<'a> Extension: serde::Deserialize<'a>,
-{
-    fn encoded(&self) -> &str {
-        &self.encoded
-    }
-
-    fn header(&self) -> Result<Header, Error> {
-        let header = decode_header(self.encoded())?;
-        Ok(header)
-    }
-
-    fn kid(&self) -> Result<String, Error> {
-        let kid = self.header()?.kid.ok_or(Error::NoKID)?;
-        Ok(kid)
-    }
-
-    pub fn decode(self, jwk_set: &JwkSet) -> Result<Token<Extension>, Error> {
-        let kid = self.kid()?;
-        let jwk = jwk_set.find(&kid).ok_or(Error::NoJWKError)?;
-        let decoding_key = DecodingKey::from_jwk(jwk)?;
-        let validation = Validation::new(Algorithm::RS256);
-        let decoded_token =
-            decode::<Claims<Extension>>(self.encoded(), &decoding_key, &validation)?;
-        let token = Token::new(decoded_token.header, decoded_token.claims);
-        Ok(token)
-    }
-}
+use crate::claims::Claims;
 
 type Resource = String;
 type Action = String;
@@ -109,20 +31,6 @@ impl<Extension> Token<Extension> {
     }
 }
 
-impl Token<AuthorizationClaims> {
-    pub fn scopes(&self) -> &Vec<Scope> {
-        &self.claims.scopes()
-    }
-
-    pub fn resources(&self) -> HashMap<Resource, ActionList> {
-        self.claims.resources()
-    }
-
-    pub fn actions(&self, resource: &str) -> Option<ActionList> {
-        self.resources().get(resource).map(Clone::clone)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
@@ -133,7 +41,7 @@ mod tests {
     use crate::{
         claims::{AuthorizationClaims, Claims},
         scope::Scope,
-        token::EncodedToken,
+        EncodedToken,
     };
 
     const PEM: &str = r#"

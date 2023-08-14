@@ -3,6 +3,7 @@ use std::{fmt, fmt::Display, marker::PhantomData, str::FromStr};
 use serde::{de, de::Visitor, Deserializer, Serializer};
 
 mod claims;
+mod encoded_token;
 mod middleware;
 mod scope;
 mod scope_deserializer;
@@ -10,15 +11,14 @@ mod scope_serializer;
 mod serde_scope;
 mod token;
 
-pub use claims::{AuthorizationClaims, Claims};
+pub use claims::{AuthorizationClaims, Claims, UserClaims};
+pub use encoded_token::{EncodedToken, EncodedTokenError};
 pub use middleware::{
     authorization_middleware::AuthorizationFactory, jwk_set_middleware::JwkSetFactory,
     jwt_middleware::JWTFactory, verify, Authorization, AuthorizationError,
 };
 pub use scope::{Scope, ScopeError};
-pub use token::{EncodedToken, Token};
-
-pub type AccessToken = Token<AuthorizationClaims>;
+pub use token::{AccessToken, EncodedAccessToken, EncodedIdToken, IdToken};
 
 fn space_separated_deserialize<'de, V, T, D>(deserializer: D) -> Result<V, D::Error>
 where

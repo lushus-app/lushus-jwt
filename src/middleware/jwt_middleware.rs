@@ -15,7 +15,7 @@ use jsonwebtoken::jwk::JwkSet;
 use crate::{
     claims::AuthorizationClaims,
     middleware::error_response::{forbidden_error_body, internal_server_error_body},
-    token::EncodedToken,
+    EncodedToken,
 };
 
 pub struct JWTFactory {
