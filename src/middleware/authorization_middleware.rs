@@ -14,7 +14,7 @@ use futures::future::LocalBoxFuture;
 
 use crate::{
     middleware::error_response::{forbidden_error_body, internal_server_error_body},
-    AccessToken,
+    AccessToken, Claims,
 };
 
 #[derive(Clone, Debug)]
@@ -150,18 +150,17 @@ where
                 .get::<AccessToken>()
                 .ok_or(AuthorizationMiddlewareError::NoToken)?
                 .clone();
-            let claims = token.claims();
+            let claims = token.claims().clone();
+            let Claims { iss, aud, .. } = claims;
             let timestamp = Utc::now().timestamp() as u64;
 
             require(
-                claims.iss == expected_claims.expected_issuer,
+                iss == expected_claims.expected_issuer,
                 "Issuer does not match",
             )?;
             require(
-                claims
-                    .aud
-                    .iter()
-                    .any(|aud| aud == &expected_claims.expected_audience),
+                aud.into_iter()
+                    .any(|aud| aud == expected_claims.expected_audience),
                 "Audience does not match",
             )?;
             require(timestamp >= claims.iat, "Token issued for invalid time")?;

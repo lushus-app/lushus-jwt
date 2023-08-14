@@ -63,7 +63,7 @@ mod test {
         let expected_claims = Claims::<AuthorizationClaims> {
             iss: "issuer".to_string(),
             sub: "subject".to_string(),
-            aud: vec!["audience".to_string()],
+            aud: vec!["audience".to_string()].into(),
             extension,
             iat: 1000,
             exp: 1000,
@@ -84,7 +84,7 @@ mod test {
         let claims = Claims::<AuthorizationClaims> {
             iss: "issuer".to_string(),
             sub: "subject".to_string(),
-            aud: vec!["audience".to_string()],
+            aud: vec!["audience".to_string()].into(),
             extension: AuthorizationClaims {
                 scopes: vec![scope_create_users, scope_read_users],
             },
