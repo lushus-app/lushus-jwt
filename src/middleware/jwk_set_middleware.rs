@@ -10,7 +10,7 @@ use actix_web::{
     Error, HttpMessage, HttpResponse, HttpResponseBuilder, ResponseError,
 };
 use futures::future::LocalBoxFuture;
-use http_cache_reqwest::{CACacheManager, Cache, CacheMode, HttpCache};
+use http_cache_reqwest::{CACacheManager, Cache, CacheMode, HttpCache, HttpCacheOptions};
 use jsonwebtoken::jwk::JwkSet;
 use reqwest::{Client, Url};
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
@@ -29,7 +29,7 @@ impl JwkSetFactory {
             .with(Cache(HttpCache {
                 mode: CacheMode::Default,
                 manager: CACacheManager::default(),
-                options: None,
+                options: HttpCacheOptions::default(),
             }))
             .build();
         let client = Rc::new(client);
