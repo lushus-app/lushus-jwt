@@ -63,7 +63,6 @@ where
         let middleware = JwkSetMiddleware {
             phantom: Default::default(),
             service: Rc::new(service),
-            // well_known_url: self.well_known_url.clone(),
             client: self.client.clone(),
         };
         ready(Ok(middleware))
@@ -112,7 +111,6 @@ where
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let service = self.service.clone();
         let client = self.client.clone();
-        // let url = self.well_known_url.clone();
         Box::pin(async move {
             let extensions = req.extensions();
             let issuer = extensions.get::<I>().ok_or(JwkSetError::NoIssuer)?;
