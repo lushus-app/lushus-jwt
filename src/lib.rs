@@ -4,6 +4,7 @@ use serde::{de, de::Visitor, Deserializer, Serializer};
 
 mod claims;
 mod encoded_token;
+mod issuer;
 mod middleware;
 mod scope;
 mod scope_deserializer;
@@ -13,6 +14,7 @@ mod token;
 
 pub use claims::{AuthorizationClaims, Claims, UserClaims};
 pub use encoded_token::{EncodedToken, EncodedTokenError};
+pub use issuer::Issuer;
 pub use middleware::{
     authorization_middleware::AuthorizationFactory, jwk_set_middleware::JwkSetFactory,
     jwt_middleware::JWTFactory, verify, Authorization, AuthorizationError,
