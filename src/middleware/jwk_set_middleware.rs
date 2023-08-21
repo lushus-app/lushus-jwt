@@ -115,8 +115,9 @@ where
             let extensions = req.extensions();
             let issuer = extensions.get::<I>().ok_or(JwkSetError::NoIssuer)?;
             let url = issuer.url();
+            let jwk_set_url = format!("{url}/.well-known/jwks.json");
             let jwk_set = client
-                .get(url)
+                .get(jwk_set_url)
                 .send()
                 .await
                 .map_err(|e| JwkSetError::FetchError(e.to_string()))

@@ -1,5 +1,6 @@
 use std::{
     future::{ready, Ready},
+    marker::PhantomData,
     rc::Rc,
 };
 
@@ -14,30 +15,28 @@ use futures::future::LocalBoxFuture;
 
 use crate::{
     middleware::error_response::{forbidden_error_body, internal_server_error_body},
-    AccessToken, Claims,
+    AccessToken, Claims, Issuer,
 };
 
 #[derive(Clone, Debug)]
 struct ExpectedClaims {
-    pub expected_issuer: String,
     pub expected_audience: String,
 }
 
-pub struct AuthorizationFactory {
+pub struct AuthorizationFactory<I: Issuer> {
     enabled: bool,
     expected_claims: ExpectedClaims,
+    phantom: PhantomData<I>,
 }
 
-impl AuthorizationFactory {
-    pub fn new(expected_issuer: String, expected_audience: String) -> Self {
+impl<I: Issuer> AuthorizationFactory<I> {
+    pub fn new(expected_audience: String) -> Self {
         let enabled = true;
-        let expected_claims = ExpectedClaims {
-            expected_issuer,
-            expected_audience,
-        };
+        let expected_claims = ExpectedClaims { expected_audience };
         Self {
             expected_claims,
             enabled,
+            phantom: Default::default(),
         }
     }
 
@@ -47,25 +46,24 @@ impl AuthorizationFactory {
     }
 }
 
-impl Default for AuthorizationFactory {
+impl<I: Issuer> Default for AuthorizationFactory<I> {
     fn default() -> Self {
-        let authority = std::env::var("LUSHUS_AUTHORITY")
-            .expect("expected environment var LUSHUS_AUTHORITY to be set");
         let audience = std::env::var("LUSHUS_AUDIENCE")
             .expect("expected environment var LUSHUS_AUDIENCE to be set");
-        Self::new(authority, audience)
+        Self::new(audience)
     }
 }
 
-impl<S, B> Transform<S, ServiceRequest> for AuthorizationFactory
+impl<I, S, B> Transform<S, ServiceRequest> for AuthorizationFactory<I>
 where
+    I: Issuer + Clone + 'static,
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + 'static,
     S::Future: 'static,
     B: 'static,
 {
     type Response = ServiceResponse<B>;
     type Error = Error;
-    type Transform = AuthorizationMiddleware<S>;
+    type Transform = AuthorizationMiddleware<I, S>;
     type InitError = ();
     type Future = Ready<Result<Self::Transform, Self::InitError>>;
 
@@ -74,15 +72,17 @@ where
             service: Rc::new(service),
             enabled: Rc::new(self.enabled),
             expected_claims: Rc::new(self.expected_claims.clone()),
+            phantom: Default::default(),
         };
         ready(Ok(middleware))
     }
 }
 
-pub struct AuthorizationMiddleware<S> {
+pub struct AuthorizationMiddleware<I, S> {
     service: Rc<S>,
     enabled: Rc<bool>,
     expected_claims: Rc<ExpectedClaims>,
+    phantom: PhantomData<I>,
 }
 
 fn require(condition: bool, message: &str) -> Result<(), AuthorizationMiddlewareError> {
@@ -102,6 +102,8 @@ fn require(condition: bool, message: &str) -> Result<(), AuthorizationMiddleware
 pub enum AuthorizationMiddlewareError {
     #[error("no token")]
     NoToken,
+    #[error("no issuer")]
+    NoIssuer,
     #[error("invalid claims: {0}")]
     InvalidClaims(String),
 }
@@ -110,7 +112,7 @@ impl ResponseError for AuthorizationMiddlewareError {
     fn status_code(&self) -> StatusCode {
         match self {
             AuthorizationMiddlewareError::InvalidClaims(_) => StatusCode::FORBIDDEN,
-            AuthorizationMiddlewareError::NoToken => StatusCode::INTERNAL_SERVER_ERROR,
+            _ => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 
@@ -119,14 +121,15 @@ impl ResponseError for AuthorizationMiddlewareError {
             AuthorizationMiddlewareError::InvalidClaims(_) => {
                 forbidden_error_body("INVALID_CLAIMS", self)
             }
-            AuthorizationMiddlewareError::NoToken => internal_server_error_body("NO_TOKEN", self),
+            _ => internal_server_error_body("INVALID", self),
         };
         HttpResponseBuilder::new(self.status_code()).json(error_body)
     }
 }
 
-impl<S, B> Service<ServiceRequest> for AuthorizationMiddleware<S>
+impl<I, S, B> Service<ServiceRequest> for AuthorizationMiddleware<I, S>
 where
+    I: Issuer + Clone + 'static,
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + 'static,
     S::Future: 'static,
     B: 'static,
@@ -145,19 +148,22 @@ where
                 return Ok(res);
             }
 
-            let token = req
-                .extensions()
+            let extensions = req.extensions();
+            let issuer = extensions
+                .get::<I>()
+                .ok_or(AuthorizationMiddlewareError::NoIssuer)?
+                .url();
+            let token = extensions
                 .get::<AccessToken>()
                 .ok_or(AuthorizationMiddlewareError::NoToken)?
                 .clone();
+            drop(extensions);
+
             let claims = token.claims().clone();
             let Claims { iss, aud, .. } = claims;
             let timestamp = Utc::now().timestamp() as u64;
 
-            require(
-                iss == expected_claims.expected_issuer,
-                "Issuer does not match",
-            )?;
+            require(iss == issuer, "Issuer does not match")?;
             require(
                 aud.into_iter()
                     .any(|aud| aud == expected_claims.expected_audience),
